@@ -15,9 +15,47 @@ def readImage(filename, greyScale):
     else:
         print('Image successfully read...' + filename)
         return img
+#
+# Read and return raw depth data
+#
+def readRawDepthInfo(filename):
+    f = None
+    x = None
+    try:
+        f = open(filename, 'r')
+    except:
+        print("Could not retrieve raw depth file: " + filename)
+    if f is not None:
+        x = np.zeros((480, 640))
+        count = 0
+        lines = f.readlines()
+        for line in lines:
+            elements = [int(i) for i in line.split('\t') if i != '\n']
+            #print len(elements)
+            #print type(elements[0])
+            x[count,:] = elements
+            count+=1
+    return x
 
 #
+# Finds the leftmost and rightmost column of the human
 #
+def findLeftandRight(depthImg):
+    left = None;
+    right = None;
+    for i in range(depthImg.shape[1]):
+        for j in range(depthImg.shape[0]):
+            if left is None and depthImg.item(j, i) != 255:
+                left = i
+            if left is not None and depthImg.item(j, i) != 255:
+                right = i
+    print "left found: " + str(left)
+    print "right found: " + str(right)
+    return left, right
+
+
+#
+# Finds the top and bottom row of the human
 #
 def findTopandBottom(depthImg):
     top = None;
@@ -32,8 +70,7 @@ def findTopandBottom(depthImg):
     print "bottom found: " + str(btm)
     return top, btm
 
-def getSideviewShape(depthImg):
-    top, btm = findTopandBottom(depthImg)
+def getSideviewShape(depthImg, top, btm):
     sideview = []
     for i in range(top, btm+1):
         result = []
@@ -56,6 +93,7 @@ def main():
     images = {}
     depth_list = os.listdir(folder_name[1])
     color_list = os.listdir(folder_name[0])
+    raw_depth_list = os.listdir(folder_name[2])
     #read our images and keep them in a tuple
     for img_name in depth_list:
         depth_img = readImage(folder_name[1] + '/' + img_name, 0)
@@ -67,13 +105,37 @@ def main():
 
         if color_img_name is not None:
             color_img = readImage(folder_name[0] + '/' + color_img_name, 1)
-        images[img_name] = ((color_img, depth_img))
 
-   # print len(images)
+
+        fname, ext = os.path.splitext(img_name)
+        raw_depth_name = folder_name[2] + '/' + fname + ".txt"
+        raw_depth = readRawDepthInfo(raw_depth_name)
+        if raw_depth is not None:
+            images[img_name] = ([color_img, depth_img, raw_depth])
+
+    print len(images)
     #np.set_printoptions(threshold=np.nan)
     #print images['dornoosh7.bmp']
-    sv = getSideviewShape(images['dornoosh7.bmp'][1])
-    print len(sv[:len(sv)/2])
+
+    #sv = getSideviewShape(images['dornoosh7.bmp'][1])
+
+   # findLeftandRight(images['dornoosh7.bmp'][1])
+    #print len(sv[:len(sv)/2])
+
+
+    l, r = findLeftandRight(images['dornoosh7.bmp'][1])
+    t, b = findTopandBottom(images['dornoosh7.bmp'][1])
+    sv = getSideviewShape(images['dornoosh7.bmp'][1], t, b)
+
+    leftCol = images['dornoosh7.bmp'][2][:,[l]]
+    rightCol = images['dornoosh7.bmp'][2][:,[r]]
+    topRow = images['dornoosh7.bmp'][2][t,:]
+    bottomRow = images['dornoosh7.bmp'][2][b,:]
+    print np.amin(leftCol[np.nonzero(leftCol)])
+    print np.amin(rightCol[np.nonzero(rightCol)])
+    print np.amin(topRow[np.nonzero(topRow)])
+    print np.amin(bottomRow[np.nonzero(bottomRow)])
+
 
 if __name__ == "__main__":
     main()
