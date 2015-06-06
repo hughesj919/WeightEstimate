@@ -70,6 +70,9 @@ def findTopandBottom(depthImg):
     print "bottom found: " + str(btm)
     return top, btm
 
+#
+# Find and return 200 dimension sideview feature
+#
 def getSideviewShape(depthImg, top, btm):
     sideview = []
     for i in range(top, btm+1):
@@ -77,12 +80,24 @@ def getSideviewShape(depthImg, top, btm):
         for j in range(depthImg.shape[1]):
             if(depthImg.item(i, j) < 255):
                 result.append(depthImg.item(i, j))
-            #result = np.minimum(depthImg[i], 255)
-        #print np.mean(result)
         sideview.append(np.mean(result))
-            #z = depthImg[i][j > 254]
-            #print np.mean(depthImg)
-    return sideview
+
+    #calculate 200 sideview features
+    sideview[:] = [255 - point for point in sideview]
+    sideview[:] = [point/min(sideview) for point in sideview]
+    sideview = sideview[:len(sideview)/2]
+    num_int_points = 201 - len(sideview)
+    int_distance = float(len(sideview)) / float(num_int_points)
+    x_points = range(1, len(sideview)+1)
+    int_points = [int_distance * i for i in range(1, num_int_points)]
+    int_values = np.interp(int_points, x_points, sideview)
+    final_sideview = [(value, sideview[value-1]) for value in x_points]
+    for i in range(len(int_points)):
+        final_sideview.append((int_points[i], int_values[i]))
+    final_sideview = sorted(final_sideview, key=lambda tup: tup[0])
+    final_sideview = [x[1] for x in final_sideview]
+
+    return final_sideview
 #
 # Main parses argument list and runs the functions
 #
@@ -114,19 +129,14 @@ def main():
             images[img_name] = ([color_img, depth_img, raw_depth])
 
     print len(images)
-    #np.set_printoptions(threshold=np.nan)
-    #print images['dornoosh7.bmp']
 
-    #sv = getSideviewShape(images['dornoosh7.bmp'][1])
-
-   # findLeftandRight(images['dornoosh7.bmp'][1])
-    #print len(sv[:len(sv)/2])
-
+    for img_name in depth_list:
+        if img_name in images.keys():
+            t, b = findTopandBottom(images[img_name][1])
+            sv = getSideviewShape(images[img_name][1], t, b)
+            print sv
 
     l, r = findLeftandRight(images['dornoosh7.bmp'][1])
-    t, b = findTopandBottom(images['dornoosh7.bmp'][1])
-    sv = getSideviewShape(images['dornoosh7.bmp'][1], t, b)
-
     leftCol = images['dornoosh7.bmp'][2][:,[l]]
     rightCol = images['dornoosh7.bmp'][2][:,[r]]
     topRow = images['dornoosh7.bmp'][2][t,:]
@@ -135,6 +145,7 @@ def main():
     print np.amin(rightCol[np.nonzero(rightCol)])
     print np.amin(topRow[np.nonzero(topRow)])
     print np.amin(bottomRow[np.nonzero(bottomRow)])
+
 
 
 if __name__ == "__main__":
